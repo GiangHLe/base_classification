@@ -2,6 +2,14 @@ import numpy as np
 import torch
 from sklearn.metrics import precision_score, recall_score, f1_score
 
+'''
+Queue:
+    + AUROC
+    + Confusion matrix
+Done:
+    + accuracy
+    + precision_recall_f1
+'''
 
 def array2tensor(array, squeeze = True):
     if isinstance(array, np.ndarray):

@@ -239,6 +239,7 @@ class RandAugment:
         self.policy = policy
 
     def __call__(self, img):
+        self.m = self.process_m()
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(img)
         ops = random.choices(self.augment_list, k=self.n)
@@ -249,11 +250,16 @@ class RandAugment:
     
     def process_m(self):
         '''
-        There are 4 policies in original paper: https://arxiv.org/abs/1909.13719
+        There are 4 policies in original paper https://arxiv.org/abs/1909.13719:
+            + Constant m
+            + random select m
+            + linearly increasing m
+            + random m in range [0, m_max] and linearly increase m_max 
         '''
         if self.policy == 'constant':
             pass
         else if self.policy == 'random':
+            # gaussian, posion, uniform?
             
         else if self.policy == 'linear':
             
