@@ -238,17 +238,17 @@ class RandAugment:
         self.augment_list = augment_list()
         self.policy = policy
 
-    def __call__(self, img):
-        self.m = self.process_m()
+    def __call__(self, img, factor):
+        m_iter = self.process_m(factor)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(img)
         ops = random.choices(self.augment_list, k=self.n)
         for op, minval, maxval in ops:
-            val = (float(self.m) / 30) * float(maxval - minval) + minval
+            val = (float(m_iter) / 30) * float(maxval - minval) + minval
             img = op(img, val)
         return np.asarray(img)
     
-    def process_m(self):
+    def process_m(self, factor):
         '''
         There are 4 policies in original paper https://arxiv.org/abs/1909.13719:
             + Constant m
@@ -257,10 +257,14 @@ class RandAugment:
             + random m in range [0, m_max] and linearly increase m_max 
         '''
         if self.policy == 'constant':
-            pass
-        else if self.policy == 'random':
-            # gaussian, posion, uniform?
-            
-        else if self.policy == 'linear':
-            
-        else:
+            return self.m
+        elif self.policy == 'random':
+            # Use poisson for discrete problem
+            random_value = np.random.poisson(self.m)            
+            return random_value if random_value <= self.m else self.m
+        elif self.policy == 'linear':
+            return self.m * factor
+        else: # random but linear the upper bound
+            upper_bound = round(self.m * factor)
+            random_value = np.random.poisson(upper_bound)
+            return random_value if random_value <= upper_bound else upper_bound
