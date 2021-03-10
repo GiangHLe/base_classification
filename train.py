@@ -12,12 +12,25 @@ from torch import nn as nn
 from tqdm import tqdm
 
 def run(save_path, dataloader, epoch, warm_up_epoch, optimizer, lr, weight_decay, weight_path, log_cache, device):
+    '''
+    Train model with warm up new layer and RandAugment, this function will:
+        + Write three log file: 
+            + model architecture
+            + training information (num batchsize, optimizer, learning rate, criterion/loss function)
+            + Loss value, accuracy or any evaluation result per epochs
+        + Dump path file contain:
+            + Optimizer parameter: to make sure it will be similar (momentum, or others accelaration vector) if we want to continue on training
+            + Model parameters
+        + A json file which contain the information to draw the graph.
+        + TODO: Adding snapshot
+    '''
     train_loader, val_loader, warm_loader = dataloader
     criterion = nn.CrossEntropyLoss()
-    optimizer = get_optimizer(optimizer, lr, weight_decay)
     # Select model, model should have freeze function
     model = ProblemModel()
-    ###
+    # get optimizer
+    optimizer = get_optimizer(optimizer, model, lr, weight_decay)
+
     last_epoch = 0
     if weight_path:
         last_epoch = extract_number(weight_path)
@@ -97,15 +110,15 @@ def run(save_path, dataloader, epoch, warm_up_epoch, optimizer, lr, weight_decay
             save_pth(save_name , epoch+last_epoch, model, optimizer, args.opt)
 
             # edit here if have more thing want to plot
-            plot_dict['train'].append(loss_train)
+            plot_dict['train'].append(loss_train) 
             plot_dict['val'].append(loss_val)
             with open(plot_train_path, 'w') as j:
                 json.dump(plot_dict, j)
 
-
-    return None
-
 def train():
+    '''
+    Train function, in case we need K-Fold training
+    '''
     weight_path = args.w
     if args.fold:
         df = grab_df(args.dp)
@@ -119,6 +132,8 @@ def train():
             image_size = args.is,
             batch_size = args.bs,
             num_workers = args.nw,
+            N = args.N,
+            M = args.M,
             shuffle = args.no_shuffle
         )
         save_path = args.save_path
@@ -148,6 +163,8 @@ if __name__ == "__main__":
     parser.add_argument('-lr', '--learning-rate', type = float, default=3e-4, help = 'Learning rate')
     parser.add_argument('-opt', '--optimize', type = str, default='radam', help = 'Select optimizer')
     parser.add_argument('-is', '--image-size', type = int, default=366, help = 'Size of image input to models')
+    parser.add_argument('-n', type = int, default= 3, help = 'Number of transformations we will -> RandAugment')
+    parser.add_argument('-m', type = int, default=366, help = 'the scale for strength of transformations -> RandAugment')
     parser.add_argument('-nw', '--num-workers', type = int, default=8, help = 'Number of process in Datat Loader')
     parser.add_argument('-wd', '--weight-decay', type = float, default=0.01, help = 'L2 Regularization')
     parser.add_argument('-wue', '--warm-up', type = int, default=3, help = 'Number of warm up epochs')
