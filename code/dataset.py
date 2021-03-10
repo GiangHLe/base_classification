@@ -1,13 +1,16 @@
 from torch.utils.data import Dataset, IterableDataset, DataLoader
 from torchvision.transforms import transforms
 
-
 from randaug import RandAugment
 from shutil import deepcopy
-
 import cv2
 
+from utils import get_data_from_df
+
 class NewCompose(transforms.Compose):
+    '''
+    Add the factor between iter idx and number of iters in 1 epoch
+    '''
     def __call__(self, img, factor):
         for t in self.transforms:
             if isinstance(t, RandAugment):
@@ -17,6 +20,9 @@ class NewCompose(transforms.Compose):
         return img
 
 def get_transform(image_size, N, M = 30):
+    '''
+    This function will apply randaugment as default
+    '''
     train_transform = transform.NewCompose([
         '''
         Resize method:
@@ -56,4 +62,50 @@ class CustomDataset(Dataset):
         image = self.transform(img = image, factor = factor)
         return (image, torch.Tensor([self.y[idx]]).type(torch.LongTensor)) if self.train \
             else image
-        
+    
+def get_dataLoader(dataframe, image_size, batch_size, num_workers, shuffle, N, M, drop_last = False):
+    train, y_train, val, y_val = get_data_from_df(df)
+    train_transform, val_transform = get_transform(image_size, N, M)
+    log_cache = (
+        batch_size,
+        image_size,
+        shuffle
+    )
+    train_dataset = CustomDataset(
+        image_list = train,
+        target = y_train,
+        transform = train_transform,
+        batch_size = batch_size,
+        train = True
+    )
+    val_dataset = CustomDataset(
+        image_list = val,
+        target = y_val,
+        transform = val_transform,
+        batch_size = batch_size,
+        train = False
+    )
+    train_loader = DataLoader(
+        dataset = train_dataset,
+        batch_size = batch_size,
+        shuffle = shuffle,
+        num_workers = num_workers,
+        drop_last = drop_last
+    )
+    val_loader = DataLoader(
+        dataset= val_dataset,
+        batch_size = batch_size,
+        shuffle = False,
+        num_workers= num_workers,
+        drop_last = False    
+    )
+    
+    # Apply warm up to new layer to make them adapt with the previous weights, normally the new layer will be Dense or Normalization layer
+    warm_loader = DataLoader(
+        dataset = train_dataset,
+        batch_size = batch_size * 5,
+        shuffle = shuffle,
+        num_workers = num_workers,
+        drop_last = drop_last    
+    )
+    return train_loader, val_loader, warm_loader, log_cache
