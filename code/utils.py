@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 
 from torch.optim import Adam, AdamW, SGD
+from torch_optimizer import RAdam
 from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import _LRScheduler
 
 from dataset import ProblemData
 
@@ -31,7 +33,9 @@ def get_transform(image_size):
     )
     return train_transform, val_transform
 
-def get_optimizer(opt_type, lr, weight_decay):
+def get_optimizer(opt_type, model, lr, weight_decay):
+    # get optimizer
+    opt_type = opt_type.lower()
     if opt_type == 'adam':
         optimizer = Adam(
             model.parameters(),
@@ -40,56 +44,41 @@ def get_optimizer(opt_type, lr, weight_decay):
             eps=1e-8,
             weight_decay=weight_decay,
         )
+    elif opt_type == 'radam':
+        optimizer = RAdam(
+            model.parameters(),
+            lr=lr,
+            betas=(0.9, 0.999),
+            eps=1e-8,
+            weight_decay=weight_decay,
+        )
+    elif opt_type == 'adamw':
+        optimizer = AdamW(
+            model.parameters(), 
+            lr = lr
+        )
+    elif opt_type == 'sgd':
+        optimizer = SGD(
+            model.parameters(),
+            lr = lr,
+            momentum=0.9,
+            nesterov=True,
+            weight_decay=weight_decay
+        )
     return optimizer
 
-def get_dataLoader(dataframe, image_size, batch_size, num_workers, shuffle, drop_last = True):
-    train, y_train, val, y_val = get_data_from_df(df)
-    train_transform, val_transform = get_transform(image_size)
-    log_cache = (
-        batch_size,
-        image_size,
-        shuffle
-    )
-    train_dataset = ProblemData(
-        image_list = train,
-        target = y_train,
-        transform = train_transform
-    )
-    val_dataset = ProblemData(
-        image_list = val,
-        target = y_val,
-        transform = val_transform
-    )
-    train_loader = DataLoader(
-        dataset = train_dataset,
-        batch_size = batch_size,
-        shuffle = shuffle,
-        num_workers = num_workers,
-        drop_last = drop_last
-    )
-    val_loader = DataLoader(
-        dataset= val_dataset,
-        batch_size = batch_size,
-        shuffle = False,
-        num_workers= num_workers,
-        drop_last = False    
-    )
-    warm_loader = DataLoader(
-        dataset = train_dataset,
-        batch_size = batch_size * 5,
-        shuffle = shuffle,
-        num_workers = num_workers,
-        drop_last = drop_last    
-    )
-    return train_loader, val_loader, warm_loader, log_cache
-
 def grab_df(path):
+    # grab all csv file
+    # support for get_data_from_df
     import glob
     list_fold = glob.glob('*.csv')
     current_dir = os.getcwd()
     list_path = [current_dir + '/' + i for i in list_fold]
     return [pd.read_csv(i) for i in list_path]
 
+'''
+Utilities for writing log function
+'''
 class HiddenPrints: # Block stdout in print function
     def __enter__(self):
         self._original_stdout = sys.stdout
