@@ -5,8 +5,91 @@ from torch.optim import Adam, AdamW, SGD
 from torch_optimizer import RAdam
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import _LRScheduler
+from torch import nn as nn
 
 from dataset import ProblemData
+
+def warm_up(model, dataloader, optimizer, criterion, device):
+    # warm up step
+    model.train()
+    bar = tqdm(dataloader)
+    for (image, target) in bar:
+        image, target = image.to(device), target.to(device)
+        output = model(image)
+        optimizer.zero_grad()
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
+        loss_np = loss.clone().detach().cpu().item()
+        bar.set_description('Loss: %.4f'%(loss_np))
+
+def train_epoch(model, dataloader, optimizer, criterion, evaluation, step_per_snap, num_step, save_path, device):
+    model.train()
+    bar = tqdm(dataloader)
+    all_loss = list()
+    snap = 1
+    for k, (image, target) in enumerate(bar):
+        # init for training
+        num_step += 1 # for snapshot
+        image, target = image.to(device), target.to(device)
+        # predict from model
+        output = model(image)
+        if k == 0:
+            output_numpy = ouput.clone().detach().cpu().numpy().squeeze()
+        else:
+            temp_numpy = ouput.clone().detach().cpu().numpy().squeeze()
+            output_numpy = np.concatenate((output_numpy, temp_numpy), axis = 0)
+        # training step
+        optimizer.zero_grad()
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
+        # visualization
+        loss_np = loss.clone().detach().cpu().item()
+        all_loss.append(loss_np)
+        bar.set_description('Loss: %.4f'%(loss_np))
+        # save model when enough step per snap
+        if num_step % step_per_snap == 0 and step_per_snap != 1:
+            name = save_path + 'snap_%d.pth'%(snap)
+            torch.save(model.state_dict(), name)
+            snap += 1
+        '''
+        let edit evaluation for each different dataset
+        '''
+    epoch_loss = np.mean(np.array(all_loss))
+    return epoch_loss, num_step
+
+def val_epoch(model, dataloader, criterion, evaluation, device):
+    model.eval()
+    bar = tqdm(dataloader)
+    all_loss = list()
+    with torch.no_grad():
+        for k, (image, target) in enumerate(bar):
+            image, target = image.to(device), target.to(device)
+            # predict from model
+            output = model(image)
+            if k == 0:
+                output_numpy = output.cpu().numpy().squeeze()
+            else:
+                temp_numpy = ouput.clone().detach().cpu().numpy().squeeze()
+                output_numpy = np.concatenate((output_numpy, temp_numpy), axis = 0)
+            target = target.numpy()
+            # loss fucntion
+            loss = criterion(output, target).clone().cpu().item()
+            all_loss.append(loss)
+            bar.set_description('Loss: %.4f'%(loss))
+            '''
+            let edit evaluation for each different dataset
+            '''
+        val_loss = np.mean(np.array(all_loss))
+    return val_loss
+
+class SigmoidCrossEntropy(nn.Module):
+    def __init__(self):
+        super(SigmoidCrossEntropy, self).__init__()
+        self.nllloss = nn.NLLLoss()
+    def forward(self, x, y):
+        return self.nllloss(nn.Sigmoid(x))
 
 def get_data_from_df(df):
     '''
@@ -14,6 +97,7 @@ def get_data_from_df(df):
     '''
     return train, y_train, val, y_val
 
+# draft version if the RandAugment is not implemented.
 def get_transform(image_size):
     # variable image_size for resize
     train_transform = albumentations.Compose([
@@ -134,3 +218,10 @@ def save_pth(path, epoch, model, optimizer, type_opt):
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict()
     }, path)
+
+def check_path(dir):
+    if os.path.exists(dir):
+        print('Save at:', dir)
+    else:
+        print('No directory, create new directory at:', dir)
+        os.makedirs(dir)

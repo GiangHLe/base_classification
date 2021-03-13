@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from sklearn.metrics import precision_score, recall_score, f1_score
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 
 '''
 Queue:
@@ -22,12 +22,15 @@ def array2tensor(array, squeeze = True):
 def check_tensor(tensor1, tensor2):
     return [array2tensor(tensor1), array2tensor(tensor2)]
 
-def accuracy(y_pred, y_true):
+def accuracy(y_pred, y_true, threshold = 0.5, binary = False):
     '''
     Return the accuracy
     '''
     y_pred, y_true = check_tensor(y_pred, y_true)
-    return (y_pred==y_true).sum()/y_true.shape[0]
+    if binary:
+        y_true = y_true.astype(np.int32)
+        y_pred = (y_pred > threshold).astype(np.int32)
+    return accuracy_score(y_true, y_pred, normalize=True)
 
 def precision_recall_f1(y_pred, y_true, average = 'macro'):
     '''
@@ -42,4 +45,3 @@ def precision_recall_f1(y_pred, y_true, average = 'macro'):
         f1_score(y_pred, y_true, average = average)
     ]
 
-def 

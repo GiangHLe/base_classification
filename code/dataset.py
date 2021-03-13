@@ -64,6 +64,9 @@ class CustomDataset(Dataset):
             else image
     
 def get_dataLoader(dataframe, image_size, batch_size, num_workers, shuffle, N, M, drop_last = False):
+    '''
+    Generate the dataloader for warm up, training and validation mode
+    '''
     train, y_train, val, y_val = get_data_from_df(df)
     train_transform, val_transform = get_transform(image_size, N, M)
     log_cache = (
@@ -108,4 +111,4 @@ def get_dataLoader(dataframe, image_size, batch_size, num_workers, shuffle, N, M
         num_workers = num_workers,
         drop_last = drop_last    
     )
-    return train_loader, val_loader, warm_loader, log_cache
+    return train_loader, val_loader, warm_loader, log_cache, len(train)
